@@ -2,8 +2,8 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/tee-verify.svg)](https://pypi.org/project/tee-verify/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](https://github.com/orgn/tee-verify/blob/main/LICENSE)
-[![CI](https://github.com/orgn/tee-verify/actions/workflows/ci.yml/badge.svg)](https://github.com/orgn/tee-verify/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](https://github.com/Sid-Lais/attestation-check/blob/main/LICENSE)
+[![CI](https://github.com/Sid-Lais/attestation-check/actions/workflows/ci.yml/badge.svg)](https://github.com/Sid-Lais/attestation-check/actions/workflows/ci.yml)
 
 **Independent verification of TEE attestation receipts. No trust required.**
 
