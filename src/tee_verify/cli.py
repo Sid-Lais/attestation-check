@@ -12,13 +12,13 @@ from tee_verify import __version__
 from tee_verify.formats.ollm import from_file as load_ollm_receipt
 from tee_verify.verifier import verify_composite, verify_from_receipt
 
-
 _BANNER = f"""\
 \033[1m{'=' * 50}
   tee-verify v{__version__}  |  by ORGN
 {'=' * 50}\033[0m"""
 
 import sys as _sys
+
 
 # Use Unicode symbols on terminals that support them, ASCII fallback otherwise
 def _supports_unicode():
@@ -181,6 +181,23 @@ def _print_text_result(result, verbose, offline):
         gpu_count = len(result.nvidia_gpus)
         match_text = f"Yes (all {gpu_count} GPUs)" if result.nonce_binding_valid else "No"
         click.echo(f"    TDX <-> GPU nonce match     {match_text}")
+        click.echo()
+
+    # Model identity section (Phase 3)
+    if result.model_identity:
+        model = result.model_identity
+        status_icon = _CHECK if model.status == "VERIFIED" else _CROSS if model.status == "FAILED" else _WARN
+        click.echo(f"  MODEL IDENTITY                {status_icon} {model.status}")
+        if model.signer_address:
+            click.echo(f"    Signature recoverable       Yes")
+            click.echo(f"    Recovered signer            {model.signer_address}")
+        if model.status == "SKIPPED":
+            click.echo(f"    {_WARN}  Phase 3 Status: Signature is valid but needs message format specification")
+            click.echo(f"         to verify signer authorization for this specific attestation.")
+        elif model.status == "VERIFIED":
+            click.echo(f"    Model signer verified       {model.declared_address}")
+        if model.error and model.status not in ("SKIPPED",):
+            click.echo(f"    Error                       {model.error}")
         click.echo()
 
     if offline:

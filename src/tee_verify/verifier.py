@@ -5,15 +5,14 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
-from tee_verify.models import (
-    CompositeVerificationResult,
-    NvidiaGPUVerificationResult,
-    OLLMReceipt,
-    TDXVerificationResult,
-)
-from tee_verify.tdx.verifier import verify_tdx_quote
-from tee_verify.nvidia.verifier import verify_gpu
 from tee_verify.binding import verify_nonce_binding
+from tee_verify.model_identity import verify_model_identity
+from tee_verify.models import (CompositeVerificationResult,
+                               ModelIdentityVerificationResult,
+                               NvidiaGPUVerificationResult, OLLMReceipt,
+                               TDXVerificationResult)
+from tee_verify.nvidia.verifier import verify_gpu
+from tee_verify.tdx.verifier import verify_tdx_quote
 
 logger = logging.getLogger(__name__)
 
@@ -93,13 +92,32 @@ def verify_from_receipt(
     Returns:
         CompositeVerificationResult.
     """
-    return verify_composite(
+    result = verify_composite(
         tdx_quote_hex=receipt.tdx_quote_hex or None,
         nvidia_certs=receipt.gpu_certificates or None,
         nvidia_evidences=receipt.gpu_evidences or None,
         nvidia_architecture=receipt.nvidia_architecture or "HOPPER",
         offline=offline,
     )
+
+    # Phase 3: Verify model identity
+    if receipt.tdx_quote_hex and receipt.ecdsa_signature and receipt.message_signer:
+        logger.info("Verifying model identity signature...")
+        model_identity = verify_model_identity(
+            tdx_quote_hex=receipt.tdx_quote_hex,
+            ecdsa_signature=receipt.ecdsa_signature,
+            message_signer=receipt.message_signer,
+            model_signing_address=receipt.model_signing_address,
+        )
+        result.model_identity = model_identity
+        logger.info("Model identity verification: %s", model_identity.status)
+
+        # Update overall status only if model identity explicitly fails
+        # (SKIPPED means signature is valid but needs message format spec)
+        if model_identity.status == "FAILED":
+            result.overall_status = "FAILED"
+
+    return result
 
 
 def _compute_overall_status(

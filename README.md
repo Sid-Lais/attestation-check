@@ -37,6 +37,7 @@ tee-verify --tdx-quote quote.hex --nvidia-cert cert.b64 --nvidia-evidence ev.b64
 - **Intel TDX** — Parses the TDX DCAP Quote v4, verifies the ECDSA-P256 signature, validates the PCK certificate chain against Intel's Root CA, and checks TCB status via Intel's Provisioning Certification Service.
 - **NVIDIA GPU Attestation** — Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, and verifies the SPDM evidence signature using the device certificate.
 - **Session Binding** — Cross-checks the attestation nonce between the TDX quote and every GPU evidence blob, proving they belong to the same TEE session.
+- **Model Identity (Phase 3)** — Recovers the Ethereum address from the attestation signature and compares it against the declared model signer, verifying that the correct signing authority attested to this execution.
 
 ## What It Does NOT Verify (Yet)
 
@@ -70,6 +71,7 @@ print(result.tdx.mrtd)              # TD measurement hash
 print(result.tdx.nonce)             # Session nonce
 print(result.nonce_binding_valid)   # True
 print(len(result.nvidia_gpus))      # 8
+print(result.model_identity.status) # "VERIFIED" or "SKIPPED"
 
 # Get structured output
 print(result.to_json())
@@ -117,10 +119,12 @@ Attestation is the cryptographic proof that a TEE is genuine and running expecte
 
 ## Roadmap
 
-- **Phase 2**: NVIDIA RIM measurement validation, real-time TCB advisory integration
-- **Phase 3**: AMD SEV-SNP attestation support
-- **Phase 4**: TypeScript/browser port for client-side verification
-- **Phase 5**: Ethereum on-chain receipt anchoring verification
+- **Phase 1** ✅ Complete: Hardware authenticity, certificate validation, session binding
+- **Phase 2**: NVIDIA RIM measurement validation (firmware integrity verification)
+- **Phase 3** ✅ In Progress: Model identity verification via signature recovery (signature recoverable, awaiting message format specification)
+- **Phase 4**: AMD SEV-SNP attestation support
+- **Phase 5**: TypeScript/browser port for client-side verification
+- **Phase 6**: Ethereum on-chain receipt anchoring
 
 ## Built by ORGN
 

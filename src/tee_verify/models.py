@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -77,6 +77,17 @@ class NvidiaEvidence:
 
 
 @dataclass
+class ModelIdentityVerificationResult:
+    """Result of model identity verification (Phase 3)."""
+
+    status: str  # "VERIFIED" | "FAILED" | "SKIPPED"
+    signer_address: str = ""  # Recovered Ethereum address
+    declared_address: str = ""  # From message_signer field
+    addresses_match: bool = False
+    error: Optional[str] = None
+
+
+@dataclass
 class CompositeVerificationResult:
     """Combined verification result across all TEE components."""
 
@@ -84,6 +95,7 @@ class CompositeVerificationResult:
     tdx: Optional[TDXVerificationResult] = None
     nvidia_gpus: List[NvidiaGPUVerificationResult] = field(default_factory=list)
     nonce_binding_valid: bool = False
+    model_identity: Optional[ModelIdentityVerificationResult] = None
     verified_at: str = ""
 
     def __post_init__(self):
