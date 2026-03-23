@@ -142,6 +142,21 @@ def _print_text_result(result, verbose, offline):
         valid_chains = sum(1 for g in gpus if g.cert_chain_valid)
         click.echo(f"    Cert Chains                 Valid ({valid_chains}/{len(gpus)})")
 
+        # OCSP status (only show if not offline/skipped)
+        good_ocsp = sum(1 for g in gpus if g.ocsp_status == "good")
+        all_skipped = all(g.ocsp_status in ("skipped", "skipped (offline)") for g in gpus)
+        if not all_skipped:
+            if good_ocsp == len(gpus):
+                click.echo(f"    OCSP Status                 Good ({good_ocsp}/{len(gpus)})")
+            else:
+                # Show status for non-good cases
+                revoked = sum(1 for g in gpus if g.ocsp_status == "revoked")
+                if revoked > 0:
+                    click.echo(f"    OCSP Status                 Revoked ({revoked}/{len(gpus)})")
+                else:
+                    # Show first GPU's status for error/unknown
+                    click.echo(f"    OCSP Status                 {gpus[0].ocsp_status.capitalize() if gpus else 'Unknown'}")
+
         valid_sigs = sum(1 for g in gpus if g.evidence_signature_valid)
         click.echo(f"    Evidence Signatures         {valid_sigs}/{len(gpus)} verified")
 
