@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tee-verify"
+version = "0.1.0"
+description = "Independent verification of TEE attestation receipts"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
+authors = [{name = "ORGN", email = "security@orgn.com"}]
+keywords = [
+    "tee", "attestation", "tdx", "nvidia", "confidential-computing",
+    "security", "verification",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Security :: Cryptography",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "cryptography>=41.0.0",
+    "requests>=2.31.0",
+    "click>=8.1.0",
+    "eth-account>=0.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+tee-verify = "tee_verify.cli:verify"
+
+[project.urls]
+Homepage = "https://github.com/orgn/tee-verify"
+Documentation = "https://github.com/orgn/tee-verify#readme"
+Issues = "https://github.com/orgn/tee-verify/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
