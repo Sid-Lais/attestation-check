@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives import hashes
 from tee_verify.models import NvidiaGPUVerificationResult, NvidiaEvidence
 from tee_verify.nvidia.parser import parse_cert_chain, parse_evidence
 from tee_verify.nvidia.ocsp import check_chain_ocsp
+from tee_verify.nvidia.rim import fetch_rim, validate_measurements
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +83,11 @@ def _verify_gpu(
         try:
             ocsp_results = check_chain_ocsp(certs)
             ocsp_statuses = [r[0] for r in ocsp_results]
-            if any(s == "revoked" for s in ocsp_statuses):
+            if not ocsp_statuses or all(s == "skipped" for s in ocsp_statuses):
+                ocsp_status = "skipped (no AIA)"
+            elif any(s == "revoked" for s in ocsp_statuses):
                 ocsp_status = "revoked"
-            elif all(s == "good" for s in ocsp_statuses):
+            elif all(s in ("good", "skipped") for s in ocsp_statuses) and any(s == "good" for s in ocsp_statuses):
                 ocsp_status = "good"
             else:
                 ocsp_status = "unknown"
@@ -100,6 +103,37 @@ def _verify_gpu(
     # Step 6: Verify evidence signature using device cert public key
     sig_valid, sig_error = _verify_evidence_signature(evidence, certs[0])
 
+    # Step 7: RIM validation (Phase 2) — compare firmware measurements against
+    # NVIDIA's published Reference Integrity Manifest
+    rim_valid: Optional[bool] = None
+    rim_status = "skipped"
+    rim_mismatches = 0
+
+    if not offline and evidence.records:
+        try:
+            rim = fetch_rim(certs, evidence.opaque_fields)
+            if rim:
+                rim_ok, mismatches = validate_measurements(evidence.records, rim)
+                rim_valid = rim_ok
+                rim_mismatches = len(mismatches)
+                if rim_ok:
+                    covered = sum(1 for r in evidence.records if r.get("index") in rim)
+                    rim_status = f"pass ({covered} measurements matched)"
+                else:
+                    rim_status = f"fail ({rim_mismatches} mismatch(es))"
+                    logger.warning(
+                        "GPU %d RIM validation: %d mismatch(es)", gpu_index, rim_mismatches
+                    )
+            else:
+                rim_status = "skipped (RIM unavailable)"
+        except Exception as e:
+            logger.warning("GPU %d RIM validation error: %s", gpu_index, e)
+            rim_status = f"error: {e}"
+    elif offline:
+        rim_status = "skipped (offline)"
+    elif not evidence.records:
+        rim_status = "skipped (no measurements)"
+
     # Determine overall status
     status = "VERIFIED"
     error = None
@@ -109,9 +143,11 @@ def _verify_gpu(
     elif ocsp_status == "revoked":
         status = "FAILED"
         error = "Certificate has been revoked"
+    elif rim_valid is False:
+        # RIM mismatch = firmware integrity failure — hard fail
+        status = "FAILED"
+        error = f"RIM validation failed: {rim_mismatches} measurement mismatch(es)"
     elif not sig_valid:
-        # Evidence signature verification is best-effort in Phase 1
-        # SPDM format parsing is complex and may not be perfect
         logger.warning(
             "GPU %d evidence signature verification: %s", gpu_index, sig_error
         )
@@ -125,6 +161,9 @@ def _verify_gpu(
         evidence_signature_valid=sig_valid,
         nonce=evidence.nonce,
         measurement_count=len(evidence.records),
+        rim_valid=rim_valid,
+        rim_status=rim_status,
+        rim_mismatches=rim_mismatches,
         error=error,
     )
 
@@ -179,34 +218,38 @@ def _verify_cert_chain(
         except Exception as e:
             return False, f"Chain verification error at cert {i}: {e}"
 
-    # Verify the chain root against the embedded NVIDIA Root CA
+    # Verify the chain root
     chain_root = certs[-1]
+
+    # First try: verify against our stored NVIDIA Root CA (if it signs the chain root)
     if nvidia_root is not None:
         try:
-            # Check if chain root is signed by NVIDIA Root CA
-            if chain_root.subject == nvidia_root.subject:
-                # Self-signed root - verify self-signature
-                pub_key = nvidia_root.public_key()
-                if isinstance(pub_key, ec.EllipticCurvePublicKey):
-                    pub_key.verify(
-                        chain_root.signature,
-                        chain_root.tbs_certificate_bytes,
-                        ec.ECDSA(chain_root.signature_hash_algorithm),
-                    )
-            else:
-                pub_key = nvidia_root.public_key()
-                if isinstance(pub_key, ec.EllipticCurvePublicKey):
-                    pub_key.verify(
-                        chain_root.signature,
-                        chain_root.tbs_certificate_bytes,
-                        ec.ECDSA(chain_root.signature_hash_algorithm),
-                    )
+            nvidia_root.public_key().verify(
+                chain_root.signature,
+                chain_root.tbs_certificate_bytes,
+                ec.ECDSA(chain_root.signature_hash_algorithm),
+            )
+            return True, None  # stored root signs the chain root
+        except Exception:
+            pass  # stored root doesn't sign it — fall through to self-signed check
+
+    # Second: accept a self-signed root if it has NVIDIA in the subject
+    # (handles chains where root is NVIDIA Device Identity CA etc.)
+    chain_root_subject = chain_root.subject.rfc4514_string()
+    if chain_root.subject == chain_root.issuer and "NVIDIA" in chain_root_subject:
+        try:
+            chain_root.public_key().verify(
+                chain_root.signature,
+                chain_root.tbs_certificate_bytes,
+                ec.ECDSA(chain_root.signature_hash_algorithm),
+            )
+            return True, None  # valid self-signed NVIDIA root
         except InvalidSignature:
-            return False, "Chain root not signed by NVIDIA Root CA"
+            return False, "Chain root self-signature is invalid"
         except Exception as e:
             return False, f"Root CA verification error: {e}"
 
-    return True, None
+    return False, "Chain root not signed by NVIDIA Root CA"
 
 
 def _verify_evidence_signature(

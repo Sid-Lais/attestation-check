@@ -44,11 +44,13 @@ else:
 @click.option("--nvidia-cert", type=click.Path(exists=True), help="Path to NVIDIA cert chain (base64)")
 @click.option("--nvidia-evidence", type=click.Path(exists=True), help="Path to NVIDIA evidence (base64)")
 @click.option("--ollm-json", type=click.Path(exists=True), help="Path to OLLM explorer JSON file")
+@click.option("--request-body", type=click.Path(exists=True), help="Path to request body file (for model identity verification)")
+@click.option("--response-body", type=click.Path(exists=True), help="Path to response body file (for model identity verification)")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text", help="Output format")
 @click.option("--offline", is_flag=True, help="Skip online checks (Intel PCS, NVIDIA OCSP)")
 @click.option("--verbose", is_flag=True, help="Show detailed output")
 @click.version_option(version=__version__)
-def verify(input_path, tdx_quote, nvidia_cert, nvidia_evidence, ollm_json, output, offline, verbose):
+def verify(input_path, tdx_quote, nvidia_cert, nvidia_evidence, ollm_json, request_body, response_body, output, offline, verbose):
     """Independently verify TEE attestation receipts. No trust required.
 
     \b
@@ -62,7 +64,7 @@ def verify(input_path, tdx_quote, nvidia_cert, nvidia_evidence, ollm_json, outpu
     ollm_path = ollm_json or input_path
 
     if ollm_path:
-        result = _verify_ollm(ollm_path, offline)
+        result = _verify_ollm(ollm_path, offline, request_body, response_body)
     elif tdx_quote:
         result = _verify_components(tdx_quote, nvidia_cert, nvidia_evidence, offline)
     else:
@@ -80,10 +82,12 @@ def verify(input_path, tdx_quote, nvidia_cert, nvidia_evidence, ollm_json, outpu
     sys.exit(0 if result.overall_status in ("VERIFIED", "TCB_OUT_OF_DATE") else 1)
 
 
-def _verify_ollm(path, offline):
+def _verify_ollm(path, offline, request_body_path=None, response_body_path=None):
     """Verify from an OLLM receipt JSON file."""
     receipt = load_ollm_receipt(path)
-    return verify_from_receipt(receipt, offline=offline)
+    request_body = Path(request_body_path).read_text(encoding="utf-8") if request_body_path else ""
+    response_body = Path(response_body_path).read_text(encoding="utf-8") if response_body_path else ""
+    return verify_from_receipt(receipt, offline=offline, request_body=request_body, response_body=response_body)
 
 
 def _verify_components(tdx_quote_path, nvidia_cert_path, nvidia_evidence_path, offline):
@@ -118,11 +122,25 @@ def _print_text_result(result, verbose, offline):
         click.echo(f"  INTEL TDX                     {status_icon} {tdx.status}")
         if tdx.tcb_status:
             click.echo(f"    TCB Status                  {tdx.tcb_status}")
+        if tdx.tee_tcb_svn:
+            click.echo(f"    TEE TCB SVN                 {tdx.tee_tcb_svn}")
+        if tdx.ppid:
+            click.echo(f"    PPID                        {tdx.ppid}")
         click.echo(f"    MRTD                        {tdx.mrtd[:32]}...")
-        if verbose and tdx.rtmr:
-            for i, rtmr in enumerate(tdx.rtmr):
-                click.echo(f"    RTMR[{i}]                     {rtmr[:32]}...")
-        click.echo(f"    Report Data (nonce)         {tdx.nonce[:32]}...")
+        if verbose:
+            if tdx.mrseam:
+                click.echo(f"    MRSEAM                      {tdx.mrseam[:32]}...")
+            if tdx.mrconfigid:
+                click.echo(f"    MRCONFIG                    {tdx.mrconfigid[:32]}...")
+            if tdx.mrowner and tdx.mrowner != '0' * len(tdx.mrowner):
+                click.echo(f"    MROWNER                     {tdx.mrowner[:32]}...")
+            if tdx.rtmr:
+                for i, rtmr in enumerate(tdx.rtmr):
+                    click.echo(f"    RTMR[{i}]                     {rtmr[:32]}...")
+            if tdx.user_data:
+                click.echo(f"    User Data                   {tdx.user_data}")
+        click.echo(f"    Report Data                 {tdx.report_data[:64]}...")
+        click.echo(f"    Nonce (report_data[32:64])  {tdx.nonce[:32]}...")
         click.echo(f"    Platform                    Genuine Intel TDX")
         if tdx.error:
             click.echo(f"    Error                       {tdx.error}")
@@ -144,7 +162,7 @@ def _print_text_result(result, verbose, offline):
 
         # OCSP status (only show if not offline/skipped)
         good_ocsp = sum(1 for g in gpus if g.ocsp_status == "good")
-        all_skipped = all(g.ocsp_status in ("skipped", "skipped (offline)") for g in gpus)
+        all_skipped = all(g.ocsp_status in ("skipped", "skipped (offline)", "skipped (no AIA)") for g in gpus)
         if not all_skipped:
             if good_ocsp == len(gpus):
                 click.echo(f"    OCSP Status                 Good ({good_ocsp}/{len(gpus)})")
@@ -160,15 +178,28 @@ def _print_text_result(result, verbose, offline):
         valid_sigs = sum(1 for g in gpus if g.evidence_signature_valid)
         click.echo(f"    Evidence Signatures         {valid_sigs}/{len(gpus)} verified")
 
-        click.echo(f"    {_WARN}  RIM validation           Phase 2 (not performed)")
+        # RIM validation summary
+        rim_attempted = [g for g in gpus if g.rim_valid is not None]
+        rim_passed = [g for g in rim_attempted if g.rim_valid is True]
+        rim_failed = [g for g in rim_attempted if g.rim_valid is False]
+        if rim_attempted:
+            if rim_failed:
+                click.echo(f"    RIM Validation              {_CROSS} {len(rim_failed)}/{len(gpus)} failed")
+            else:
+                click.echo(f"    RIM Validation              {_CHECK} {len(rim_passed)}/{len(gpus)} passed")
+        else:
+            # Show why RIM was skipped (use first GPU's rim_status)
+            first_rim_status = gpus[0].rim_status if gpus else "skipped"
+            click.echo(f"    RIM Validation              {_WARN} {first_rim_status.capitalize()}")
 
         if verbose:
             for g in gpus:
                 status_icon = _CHECK if g.status != "FAILED" else _CROSS
+                rim_str = g.rim_status if g.rim_status else "skipped"
                 click.echo(f"      GPU {g.gpu_index}: {status_icon} {g.status} "
                           f"(cert={g.cert_chain_valid}, ocsp={g.ocsp_status}, "
                           f"sig={g.evidence_signature_valid}, "
-                          f"measurements={g.measurement_count})")
+                          f"measurements={g.measurement_count}, rim={rim_str})")
                 if g.error:
                     click.echo(f"        Error: {g.error}")
         click.echo()
@@ -188,16 +219,26 @@ def _print_text_result(result, verbose, offline):
         model = result.model_identity
         status_icon = _CHECK if model.status == "VERIFIED" else _CROSS if model.status == "FAILED" else _WARN
         click.echo(f"  MODEL IDENTITY                {status_icon} {model.status}")
-        if model.signer_address:
-            click.echo(f"    Signature recoverable       Yes")
+        if model.status == "VERIFIED":
+            click.echo(f"    Signer verified             {model.declared_address}")
+            click.echo(f"    Signing format              {model.detected_format}")
+            if model.formats_tried:
+                click.echo(f"    Formats tried               {model.formats_tried}")
+        elif model.status == "SKIPPED":
+            if model.formats_tried:
+                click.echo(f"    Formats tried               {model.formats_tried}")
+                click.echo(f"    {_WARN}  None of {model.formats_tried} formats matched the declared signer")
+                if model.error and "--request-body" in model.error:
+                    click.echo(f"         Run with --request-body and --response-body to enable request+response formats")
+            else:
+                click.echo(f"    {_WARN}  No signature data in attestation")
+        elif model.status == "FAILED":
             click.echo(f"    Recovered signer            {model.signer_address}")
-        if model.status == "SKIPPED":
-            click.echo(f"    {_WARN}  Phase 3 Status: Signature is valid but needs message format specification")
-            click.echo(f"         to verify signer authorization for this specific attestation.")
-        elif model.status == "VERIFIED":
-            click.echo(f"    Model signer verified       {model.declared_address}")
-        if model.error and model.status not in ("SKIPPED",):
-            click.echo(f"    Error                       {model.error}")
+            click.echo(f"    Declared signer             {model.declared_address}")
+            if model.detected_format:
+                click.echo(f"    Signing format              {model.detected_format}")
+            if model.error:
+                click.echo(f"    Error                       {model.error}")
         click.echo()
 
     if offline:

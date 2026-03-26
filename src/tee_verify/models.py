@@ -31,6 +31,7 @@ class TDXQuote:
     rtmr2: str
     rtmr3: str
     report_data: str
+    user_data: str  # 20-byte header field at offset 28
     signature: bytes
     attest_pub_key: bytes
     pck_cert_chain: List[bytes]
@@ -44,9 +45,16 @@ class TDXVerificationResult:
 
     status: str  # "VERIFIED" | "FAILED" | "TCB_OUT_OF_DATE"
     mrtd: str = ""
+    mrseam: str = ""
+    mrconfigid: str = ""
+    mrowner: str = ""
+    mrownerconfig: str = ""
     rtmr: List[str] = field(default_factory=list)
     report_data: str = ""
     nonce: str = ""
+    user_data: str = ""
+    ppid: str = ""
+    tee_tcb_svn: str = ""
     tcb_status: str = ""
     error: Optional[str] = None
 
@@ -63,6 +71,10 @@ class NvidiaGPUVerificationResult:
     evidence_signature_valid: bool = False
     nonce: str = ""
     measurement_count: int = 0
+    # Phase 2: RIM validation
+    rim_valid: Optional[bool] = None       # None = not attempted / skipped
+    rim_status: str = ""                   # human-readable RIM status
+    rim_mismatches: int = 0               # number of hash mismatches
     error: Optional[str] = None
 
 
@@ -74,6 +86,9 @@ class NvidiaEvidence:
     nonce: str = ""
     signature: bytes = b""
     raw_signed_data: bytes = b""
+    # SPDM OpaqueData fields (2-byte type LE → string value)
+    # Key fields: 3=driver_version, 6=vbios_version, 15=chip_sku, 17=project, 18=project_sku
+    opaque_fields: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -84,6 +99,8 @@ class ModelIdentityVerificationResult:
     signer_address: str = ""  # Recovered Ethereum address
     declared_address: str = ""  # From message_signer field
     addresses_match: bool = False
+    detected_format: str = ""  # Which signing format matched
+    formats_tried: int = 0  # How many formats were attempted
     error: Optional[str] = None
 
 

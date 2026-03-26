@@ -9,10 +9,23 @@ import requests
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.x509 import ocsp
+from cryptography.x509.oid import ExtensionOID, AuthorityInformationAccessOID
 
 logger = logging.getLogger(__name__)
 
 NVIDIA_OCSP_URL = "https://ocsp.ndis.nvidia.com/"
+
+
+def _get_ocsp_url(cert: x509.Certificate) -> Optional[str]:
+    """Extract OCSP URL from cert's AIA extension, or return None."""
+    try:
+        aia = cert.extensions.get_extension_for_oid(ExtensionOID.AUTHORITY_INFORMATION_ACCESS)
+        for desc in aia.value:
+            if desc.access_method == AuthorityInformationAccessOID.OCSP:
+                return desc.access_location.value
+    except Exception:
+        pass
+    return None
 
 
 def check_ocsp(
@@ -20,7 +33,10 @@ def check_ocsp(
     issuer: x509.Certificate,
     timeout: int = 15,
 ) -> Tuple[str, str]:
-    """Check certificate revocation status via NVIDIA OCSP.
+    """Check certificate revocation status via OCSP.
+
+    Uses the OCSP URL from the cert's AIA extension. If no AIA OCSP URL is
+    present, returns ("skipped", ...) rather than guessing a URL.
 
     Args:
         cert: The certificate to check.
@@ -28,8 +44,13 @@ def check_ocsp(
         timeout: Request timeout in seconds.
 
     Returns:
-        Tuple of (status, detail) where status is "good", "revoked", or "unknown".
+        Tuple of (status, detail) where status is "good", "revoked", "unknown",
+        or "skipped".
     """
+    ocsp_url = _get_ocsp_url(cert)
+    if not ocsp_url:
+        return "skipped", "No OCSP URL in certificate"
+
     try:
         builder = ocsp.OCSPRequestBuilder()
         builder = builder.add_certificate(cert, issuer, hashes.SHA256())
@@ -37,7 +58,7 @@ def check_ocsp(
         ocsp_request_data = ocsp_request.public_bytes(serialization.Encoding.DER)
 
         resp = requests.post(
-            NVIDIA_OCSP_URL,
+            ocsp_url,
             data=ocsp_request_data,
             headers={"Content-Type": "application/ocsp-request"},
             timeout=timeout,
@@ -69,17 +90,20 @@ def check_chain_ocsp(
     certs: list[x509.Certificate],
     timeout: int = 15,
 ) -> list[Tuple[str, str]]:
-    """Check OCSP status for each certificate in a chain (except the root).
+    """Check OCSP revocation status for the leaf certificate only.
+
+    NVIDIA's OCSP responder (ocsp.ndis.nvidia.com) handles device-level
+    (leaf) certificates. Intermediate and root CAs use CRL instead of OCSP.
 
     Args:
         certs: Certificate chain ordered [leaf, intermediate..., root].
         timeout: Request timeout in seconds.
 
     Returns:
-        List of (status, detail) tuples for each cert except root.
+        List with a single (status, detail) tuple for the leaf cert, or
+        empty list if the chain has fewer than 2 certificates.
     """
-    results = []
-    for i in range(len(certs) - 1):
-        status, detail = check_ocsp(certs[i], certs[i + 1], timeout=timeout)
-        results.append((status, detail))
-    return results
+    if len(certs) < 2:
+        return []
+    status, detail = check_ocsp(certs[0], certs[1], timeout=timeout)
+    return [(status, detail)]

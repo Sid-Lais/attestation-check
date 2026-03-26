@@ -82,6 +82,8 @@ def verify_composite(
 def verify_from_receipt(
     receipt: OLLMReceipt,
     offline: bool = False,
+    request_body: str = "",
+    response_body: str = "",
 ) -> CompositeVerificationResult:
     """Run verification from a parsed OLLM receipt.
 
@@ -108,6 +110,9 @@ def verify_from_receipt(
             ecdsa_signature=receipt.ecdsa_signature,
             message_signer=receipt.message_signer,
             model_signing_address=receipt.model_signing_address,
+            nonce=receipt.nvidia_nonce,
+            request_body=request_body,
+            response_body=response_body,
         )
         result.model_identity = model_identity
         logger.info("Model identity verification: %s", model_identity.status)

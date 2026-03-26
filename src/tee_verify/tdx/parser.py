@@ -81,7 +81,11 @@ def parse_quote(data: str | bytes) -> TDXQuote:
     if version != 4:
         raise ValueError(f"Expected quote version 4, got {version}")
 
-    qe_vendor_id = raw[32:48].hex()
+    # Header layout (48 bytes total):
+    #   0: version(2), 2: att_key_type(2), 4: tee_type(4),
+    #   8: qe_svn(2), 10: pce_svn(2), 12: vendor_id(16), 28: user_data(20)
+    qe_vendor_id = raw[12:28].hex()
+    user_data = raw[28:48].hex()
 
     # Parse TD Quote Body
     body = raw[_TD_BODY_START:_TD_BODY_END]
@@ -140,6 +144,7 @@ def parse_quote(data: str | bytes) -> TDXQuote:
         rtmr2=rtmr2,
         rtmr3=rtmr3,
         report_data=report_data,
+        user_data=user_data,
         signature=signature,
         attest_pub_key=attest_pub_key,
         pck_cert_chain=pck_cert_chain,

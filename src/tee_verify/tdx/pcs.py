@@ -59,10 +59,17 @@ def _parse_fmspc_from_sgx_extension(data: bytes) -> Optional[str]:
 
     The SGX extension is a SEQUENCE of SEQUENCE items, each containing
     an OID and a value. We search for the FMSPC OID.
+
+    OID 1.2.840.113741.1.13.1.4 DER encoding:
+      06 0A 2A 86 48 86 F8 4D 01 0D 01 04
+      - 2A       = 1.2 (first two arcs)
+      - 86 48    = 840
+      - 86 F8 4D = 113741 (base-128: 6*128^2 + 120*128 + 77)
+      - 01 0D 01 = 1.13.1
+      - 04       = .4
     """
-    # The FMSPC OID encoded in DER: 06 09 2a 86 48 86 f7 0d 01 0d 01 04
     fmspc_oid_bytes = bytes([
-        0x06, 0x0B, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x41, 0x01, 0x0D, 0x01, 0x04
+        0x06, 0x0A, 0x2A, 0x86, 0x48, 0x86, 0xF8, 0x4D, 0x01, 0x0D, 0x01, 0x04
     ])
     idx = data.find(fmspc_oid_bytes)
     if idx == -1:

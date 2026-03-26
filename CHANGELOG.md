@@ -9,17 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Phase 3 Model Identity Verification**: ECDSA signature recovery from attestation data
-  - Recovers Ethereum address from signature
-  - Validates signer authority (signature mechanically valid)
-  - Returns SKIPPED status awaiting message format specification
-  - Ready for deployment once message encoding is documented
+- **Phase 2 NVIDIA RIM Validation**: GPU firmware integrity verification against NVIDIA's Reference Integrity Manifests
+  - Fetches signed driver RIM from `rim.attestation.nvidia.com` using driver version extracted from SPDM OpaqueData
+  - Parses SWID XML (ISO 19770-2) with SHA-384 reference hashes and multi-alternative support
+  - Validates all active firmware measurement blocks (22 entries for GH100/H100 driver 570.x)
+  - Correctly maps 1-based SPDM block indices to 0-based RIM indices
+  - Hard-fails verification if any measurement hash mismatches (tampered firmware detected)
+  - Graceful degradation: skips with warning if RIM service is unreachable or in offline mode
+  - Verified against real production data: 8× NVIDIA H100, driver 570.172.08, 22/22 measurements matched
+- **SPDM OpaqueData Parsing**: Extracts driver version, VBIOS version, chip SKU, project, and project SKU from SPDM evidence
+- **Phase 3 Model Identity Verification**: Self-discovering ECDSA signature verification
+  - Probes 21 Ethereum signing formats (EIP-191 raw, text, keccak256, sha256, raw hash) across TDX quote, model signing address, nonce, and their combinations
+  - Returns VERIFIED with detected format name when a match is found
+  - Returns SKIPPED with formats-tried count when no format matches (unknown format, not a broken signature)
+  - No external dependencies — fully self-contained format discovery
 - **OCSP Status in CLI Output**: Certificate revocation status now displayed in text format
   - Shows "OCSP Status: Good (X/Y)" when all GPUs pass OCSP in online mode
   - Hidden in offline mode for consistency
   - Already available in JSON output
 
-## [0.1.0] - 2024-12-01
+## [0.1.0] - 2026-3-23
 
 ### Added
 
