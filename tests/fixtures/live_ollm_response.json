@@ -1,0 +1,22 @@
+{
+  "id": "chatcmpl-813c25089f29dcb4",
+  "created": 1774593327,
+  "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+  "object": "chat.completion",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "The sky appears blue due to a phenomenon called **Rayleigh scattering**.\n\nHere\u2019s a simple breakdown:\n\n1. **Sunlight is made of all colors**: Sunlight looks white, but it\u2019s actually a combination of all the colors of the rainbow (red, orange, yellow, green, blue, indigo, violet).\n\n2. **Earth's atmosphere is full of molecules and tiny particles**: When sunlight enters the atmosphere, it collides with molecules like nitrogen and oxygen, as well as small particles.\n\n3. **Shorter wavelengths scatter more**: Blue and violet light have shorter wavelengths compared to red, orange, or yellow light. Because of their short wavelengths, blue light gets scattered in all directions by the atmosphere much more than the longer wavelengths.\n\n4. **Our eyes are more sensitive to blue than violet**: Although violet light is scattered even more than blue, our eyes are less sensitive to violet, and some of it is absorbed by the upper atmosphere. So, we see the sky as blue.\n\n\ud83d\udca1 In summary: **The sky is blue because the atmosphere scatters shorter blue wavelengths of sunlight more than the other colors, and our eyes are most sensitive to blue.**\n\nFun fact: At sunrise and sunset, the sky appears red or orange because the sun is lower in the sky, and its light passes through more atmosphere. This scatters away the blue light, leaving the reds and oranges visible.",
+        "role": "assistant"
+      },
+      "provider_specific_fields": {}
+    }
+  ],
+  "usage": {
+    "completion_tokens": 285,
+    "prompt_tokens": 14,
+    "total_tokens": 299
+  }
+}

@@ -178,28 +178,42 @@ def _print_text_result(result, verbose, offline):
         valid_sigs = sum(1 for g in gpus if g.evidence_signature_valid)
         click.echo(f"    Evidence Signatures         {valid_sigs}/{len(gpus)} verified")
 
-        # RIM validation summary
+        # Driver RIM validation summary
         rim_attempted = [g for g in gpus if g.rim_valid is not None]
         rim_passed = [g for g in rim_attempted if g.rim_valid is True]
         rim_failed = [g for g in rim_attempted if g.rim_valid is False]
         if rim_attempted:
             if rim_failed:
-                click.echo(f"    RIM Validation              {_CROSS} {len(rim_failed)}/{len(gpus)} failed")
+                click.echo(f"    Driver RIM                  {_CROSS} {len(rim_failed)}/{len(gpus)} failed")
             else:
-                click.echo(f"    RIM Validation              {_CHECK} {len(rim_passed)}/{len(gpus)} passed")
+                click.echo(f"    Driver RIM                  {_CHECK} {len(rim_passed)}/{len(gpus)} passed")
         else:
-            # Show why RIM was skipped (use first GPU's rim_status)
             first_rim_status = gpus[0].rim_status if gpus else "skipped"
-            click.echo(f"    RIM Validation              {_WARN} {first_rim_status.capitalize()}")
+            click.echo(f"    Driver RIM                  {_WARN} {first_rim_status.capitalize()}")
+
+        # VBIOS RIM validation summary
+        vbios_attempted = [g for g in gpus if g.vbios_rim_valid is not None]
+        vbios_passed = [g for g in vbios_attempted if g.vbios_rim_valid is True]
+        vbios_failed = [g for g in vbios_attempted if g.vbios_rim_valid is False]
+        if vbios_attempted:
+            if vbios_failed:
+                click.echo(f"    VBIOS RIM                   {_CROSS} {len(vbios_failed)}/{len(gpus)} failed")
+            else:
+                click.echo(f"    VBIOS RIM                   {_CHECK} {len(vbios_passed)}/{len(gpus)} passed")
+        else:
+            first_vbios_status = gpus[0].vbios_rim_status if gpus else "skipped"
+            click.echo(f"    VBIOS RIM                   {_WARN} {first_vbios_status.capitalize()}")
 
         if verbose:
             for g in gpus:
                 status_icon = _CHECK if g.status != "FAILED" else _CROSS
                 rim_str = g.rim_status if g.rim_status else "skipped"
+                vbios_str = g.vbios_rim_status if g.vbios_rim_status else "skipped"
                 click.echo(f"      GPU {g.gpu_index}: {status_icon} {g.status} "
                           f"(cert={g.cert_chain_valid}, ocsp={g.ocsp_status}, "
                           f"sig={g.evidence_signature_valid}, "
-                          f"measurements={g.measurement_count}, rim={rim_str})")
+                          f"measurements={g.measurement_count}, "
+                          f"driver_rim={rim_str}, vbios_rim={vbios_str})")
                 if g.error:
                     click.echo(f"        Error: {g.error}")
         click.echo()

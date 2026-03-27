@@ -71,10 +71,14 @@ class NvidiaGPUVerificationResult:
     evidence_signature_valid: bool = False
     nonce: str = ""
     measurement_count: int = 0
-    # Phase 2: RIM validation
+    # Phase 2: driver RIM validation
     rim_valid: Optional[bool] = None       # None = not attempted / skipped
     rim_status: str = ""                   # human-readable RIM status
     rim_mismatches: int = 0               # number of hash mismatches
+    # Phase 2b: VBIOS RIM validation
+    vbios_rim_valid: Optional[bool] = None
+    vbios_rim_status: str = ""
+    vbios_rim_mismatches: int = 0
     error: Optional[str] = None
 
 

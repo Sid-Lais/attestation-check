@@ -35,13 +35,12 @@ tee-verify --tdx-quote quote.hex --nvidia-cert cert.b64 --nvidia-evidence ev.b64
 ## What It Verifies
 
 - **Intel TDX** — Parses the TDX DCAP Quote v4, verifies the ECDSA-P256 signature, validates the PCK certificate chain against Intel's Root CA, and checks TCB status via Intel's Provisioning Certification Service.
-- **NVIDIA GPU Attestation** — Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, verifies the SPDM evidence signature using the device certificate, and validates all firmware measurements against NVIDIA's signed Reference Integrity Manifests (RIMs).
+- **NVIDIA GPU Attestation** — Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, verifies the SPDM evidence signature using the device certificate, and validates all firmware measurements against NVIDIA's signed Reference Integrity Manifests — both driver firmware (22 measurements) and GPU BIOS firmware (11 measurements).
 - **Session Binding** — Cross-checks the attestation nonce between the TDX quote and every GPU evidence blob, proving they belong to the same TEE session.
 - **Model Identity (Phase 3)** — Recovers the Ethereum address from the attestation signature and compares it against the declared model signer, verifying that the correct signing authority attested to this execution.
 
 ## What It Does NOT Verify (Yet)
 
-- **VBIOS RIM Validation** — Driver firmware measurements are verified against NVIDIA's RIM service. VBIOS RIM validation (a separate manifest covering GPU BIOS firmware) is planned for Phase 2b.
 - **AMD SEV-SNP** — Support for AMD's confidential computing platform is on the roadmap.
 
 ## How It Works
@@ -50,7 +49,7 @@ A TEE attestation receipt contains two independent proofs:
 
 1. The **Intel TDX quote** proves the CPU is running inside a genuine Trust Domain with a specific software measurement (MRTD). The quote is signed by Intel's Quoting Enclave using a Platform Certification Key traceable to Intel's root of trust.
 
-2. The **NVIDIA GPU evidence** proves each GPU in the cluster is a genuine NVIDIA device running verified firmware. Each GPU produces an SPDM measurement report signed by its device-specific attestation key, with a certificate chain rooted in NVIDIA's PKI. The firmware measurements are cross-checked against NVIDIA's signed Reference Integrity Manifests to confirm no firmware component has been modified.
+2. The **NVIDIA GPU evidence** proves each GPU in the cluster is a genuine NVIDIA device running verified firmware. Each GPU produces an SPDM measurement report signed by its device-specific attestation key, with a certificate chain rooted in NVIDIA's PKI. The firmware measurements are cross-checked against NVIDIA's signed Reference Integrity Manifests for both the GPU driver and GPU BIOS, confirming no firmware component has been modified.
 
 The receipts are cryptographically bound together by a shared nonce: the GPU attestation nonce must appear in the TDX quote's REPORT_DATA field, proving both attestations were generated in the same session.
 
@@ -120,9 +119,9 @@ Attestation is the cryptographic proof that a TEE is genuine and running expecte
 ## Roadmap
 
 - **Phase 1** ✅ Complete: Hardware authenticity, certificate validation, session binding
-- **Phase 2** ✅ Complete: NVIDIA driver RIM validation — firmware measurements verified against NVIDIA's Reference Integrity Manifests
-- **Phase 2b**: VBIOS RIM validation (GPU BIOS firmware integrity)
-- **Phase 3** ✅ In Progress: Model identity verification via signature recovery (address recoverable, awaiting message format specification from ORGN)
+- **Phase 2** ✅ Complete: NVIDIA driver RIM validation — 22 firmware measurements verified per GPU
+- **Phase 2b** ✅ Complete: NVIDIA VBIOS RIM validation — 11 GPU BIOS firmware measurements verified per GPU
+- **Phase 3** ✅ In Progress: Model identity verification via signature recovery (address recoverable, awaiting message format specification)
 - **Phase 4**: TypeScript/browser port for client-side verification
 - **Phase 5**: Ethereum on-chain receipt anchoring
 

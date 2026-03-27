@@ -134,6 +134,53 @@ def validate_measurements(
     return all_match, mismatches
 
 
+def fetch_vbios_rim(
+    opaque_fields: dict,
+    timeout: int = 30,
+) -> Optional[dict]:
+    """Fetch the NVIDIA VBIOS RIM for a GPU.
+
+    Constructs the VBIOS RIM file ID from OpaqueData fields (project, project_sku,
+    chip_sku, vbios_version bytes) and fetches the SWID XML from NVIDIA's RIM service.
+
+    VBIOS RIM ID format: NV_GPU_VBIOS_{PROJECT}_{PROJECT_SKU}_{CHIP_SKU}_{version}
+    Example: NV_GPU_VBIOS_G520_0280_895_9600CF0002
+
+    The version string is derived from VBIOS_VERSION bytes (field type 6):
+      bytes[3] || "00" || bytes[1] || "00" || bytes[4]
+      e.g. 00CF009602000000 → 96 + 00 + CF + 00 + 02 = 9600CF0002
+
+    Args:
+        opaque_fields: Parsed SPDM OpaqueData fields from parse_evidence().
+        timeout: HTTP request timeout in seconds.
+
+    Returns:
+        Dict mapping measurement index (int) to list of valid hash strings,
+        or None if the VBIOS RIM could not be fetched.
+    """
+    try:
+        file_id = _build_vbios_rim_id(opaque_fields)
+        url = NVIDIA_RIM_SERVICE_URL + file_id
+        logger.info("Fetching NVIDIA VBIOS RIM: %s", url)
+
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+
+        payload = resp.json()
+        xml_bytes = base64.b64decode(payload["rim"])
+        return _parse_rim_xml(xml_bytes)
+
+    except requests.HTTPError as e:
+        logger.warning("VBIOS RIM fetch HTTP error (%s): %s",
+                       e.response.status_code if e.response else "?", e)
+    except requests.RequestException as e:
+        logger.warning("VBIOS RIM fetch network error: %s", e)
+    except (KeyError, Exception) as e:
+        logger.warning("VBIOS RIM fetch/parse error: %s", e)
+
+    return None
+
+
 def _build_driver_rim_id(
     certs: list[x509.Certificate],
     opaque_fields: dict,
@@ -148,6 +195,30 @@ def _build_driver_rim_id(
     if not driver_ver:
         raise ValueError("Driver version not found in SPDM OpaqueData")
     return f"NV_GPU_DRIVER_{chip}_{driver_ver}"
+
+
+def _build_vbios_rim_id(opaque_fields: dict) -> str:
+    """Build the VBIOS RIM file ID string from OpaqueData fields.
+
+    Format: NV_GPU_VBIOS_{PROJECT}_{PROJECT_SKU}_{CHIP_SKU}_{version}
+    The version encodes bytes from VBIOS_VERSION field (type 6):
+      bytes[3] || 00 || bytes[1] || 00 || bytes[4]
+    e.g. 00CF009602000000 → 9600CF0002
+    """
+    project     = opaque_fields.get(_OPAQUE_PROJECT, "")
+    project_sku = opaque_fields.get(_OPAQUE_PROJECT_SKU, "")
+    chip_sku    = opaque_fields.get(_OPAQUE_CHIP_SKU, "")
+    vbios_hex   = opaque_fields.get(_OPAQUE_VBIOS_VERSION, "")
+
+    if not all([project, project_sku, chip_sku, vbios_hex]):
+        raise ValueError("Missing required OpaqueData fields for VBIOS RIM ID")
+
+    b = bytes.fromhex(vbios_hex)
+    if len(b) < 5:
+        raise ValueError(f"VBIOS_VERSION too short: {vbios_hex}")
+
+    version = f"{b[3]:02X}00{b[1]:02X}00{b[4]:02X}"
+    return f"NV_GPU_VBIOS_{project}_{project_sku}_{chip_sku}_{version}"
 
 
 def _detect_chip(certs: list[x509.Certificate]) -> str:

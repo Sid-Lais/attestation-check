@@ -1,0 +1,9 @@
+{
+  "model": "near/Qwen3-30B-A3B-Instruct-2507",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Why is the sky blue?"
+    }
+  ]
+}

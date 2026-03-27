@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hard-fails verification if any measurement hash mismatches (tampered firmware detected)
   - Graceful degradation: skips with warning if RIM service is unreachable or in offline mode
   - Verified against real production data: 8× NVIDIA H100, driver 570.172.08, 22/22 measurements matched
+- **Phase 2b NVIDIA VBIOS RIM Validation**: GPU BIOS firmware integrity verification
+  - Derives VBIOS RIM ID from OpaqueData fields (project, project SKU, chip SKU, VBIOS version bytes)
+  - Version byte encoding: `bytes[3] || 00 || bytes[1] || 00 || bytes[4]` (e.g. `9600CF0002`)
+  - Validates 11 active BIOS firmware measurement blocks per GPU
+  - Same index mapping and validation logic as driver RIM
+  - Verified against real production data: 8× NVIDIA H100, 11/11 measurements matched
 - **SPDM OpaqueData Parsing**: Extracts driver version, VBIOS version, chip SKU, project, and project SKU from SPDM evidence
 - **Phase 3 Model Identity Verification**: Self-discovering ECDSA signature verification
   - Probes 21 Ethereum signing formats (EIP-191 raw, text, keccak256, sha256, raw hash) across TDX quote, model signing address, nonce, and their combinations
@@ -28,9 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hidden in offline mode for consistency
   - Already available in JSON output
 
-## [0.1.0] - 2026-3-23
+## [0.1.0] - 2026-03-23
 
-### Added
+### Added (0.1.0)
 
 - Intel TDX DCAP Quote v4 parsing and verification
 - NVIDIA GPU attestation certificate chain validation

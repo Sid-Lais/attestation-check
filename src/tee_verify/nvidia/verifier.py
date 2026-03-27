@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives import hashes
 from tee_verify.models import NvidiaGPUVerificationResult, NvidiaEvidence
 from tee_verify.nvidia.parser import parse_cert_chain, parse_evidence
 from tee_verify.nvidia.ocsp import check_chain_ocsp
-from tee_verify.nvidia.rim import fetch_rim, validate_measurements
+from tee_verify.nvidia.rim import fetch_rim, fetch_vbios_rim, validate_measurements
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +134,32 @@ def _verify_gpu(
     elif not evidence.records:
         rim_status = "skipped (no measurements)"
 
+    # Step 8: VBIOS RIM validation (Phase 2b)
+    vbios_rim_valid: Optional[bool] = None
+    vbios_rim_status = "skipped"
+    vbios_rim_mismatches = 0
+
+    if not offline and evidence.records:
+        try:
+            vbios_rim = fetch_vbios_rim(evidence.opaque_fields)
+            if vbios_rim:
+                vbios_ok, vbios_mm = validate_measurements(evidence.records, vbios_rim)
+                vbios_rim_valid = vbios_ok
+                vbios_rim_mismatches = len(vbios_mm)
+                if vbios_ok:
+                    covered = sum(1 for r in evidence.records if r.get("index") in vbios_rim)
+                    vbios_rim_status = f"pass ({covered} measurements matched)"
+                else:
+                    vbios_rim_status = f"fail ({vbios_rim_mismatches} mismatch(es))"
+                    logger.warning("GPU %d VBIOS RIM: %d mismatch(es)", gpu_index, vbios_rim_mismatches)
+            else:
+                vbios_rim_status = "skipped (RIM unavailable)"
+        except Exception as e:
+            logger.warning("GPU %d VBIOS RIM error: %s", gpu_index, e)
+            vbios_rim_status = f"skipped (error: {e})"
+    elif offline:
+        vbios_rim_status = "skipped (offline)"
+
     # Determine overall status
     status = "VERIFIED"
     error = None
@@ -144,9 +170,11 @@ def _verify_gpu(
         status = "FAILED"
         error = "Certificate has been revoked"
     elif rim_valid is False:
-        # RIM mismatch = firmware integrity failure — hard fail
         status = "FAILED"
-        error = f"RIM validation failed: {rim_mismatches} measurement mismatch(es)"
+        error = f"Driver RIM validation failed: {rim_mismatches} measurement mismatch(es)"
+    elif vbios_rim_valid is False:
+        status = "FAILED"
+        error = f"VBIOS RIM validation failed: {vbios_rim_mismatches} measurement mismatch(es)"
     elif not sig_valid:
         logger.warning(
             "GPU %d evidence signature verification: %s", gpu_index, sig_error
@@ -164,6 +192,9 @@ def _verify_gpu(
         rim_valid=rim_valid,
         rim_status=rim_status,
         rim_mismatches=rim_mismatches,
+        vbios_rim_valid=vbios_rim_valid,
+        vbios_rim_status=vbios_rim_status,
+        vbios_rim_mismatches=vbios_rim_mismatches,
         error=error,
     )
 
