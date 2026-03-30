@@ -37,7 +37,7 @@ tee-verify --tdx-quote quote.hex --nvidia-cert cert.b64 --nvidia-evidence ev.b64
 - **Intel TDX** — Parses the TDX DCAP Quote v4, verifies the ECDSA-P256 signature, validates the PCK certificate chain against Intel's Root CA, and checks TCB status via Intel's Provisioning Certification Service.
 - **NVIDIA GPU Attestation** — Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, verifies the SPDM evidence signature using the device certificate, and validates all firmware measurements against NVIDIA's signed Reference Integrity Manifests — both driver firmware (22 measurements) and GPU BIOS firmware (11 measurements).
 - **Session Binding** — Cross-checks the attestation nonce between the TDX quote and every GPU evidence blob, proving they belong to the same TEE session.
-- **Model Identity (Phase 3)** — Recovers the Ethereum address from the attestation signature and compares it against the declared model signer, verifying that the correct signing authority attested to this execution.
+- **Model Identity** — Verifies the ECDSA signature over `EIP-191(sha256(request):sha256(response))`, confirming that the declared model signing authority processed this exact request and response. Activates automatically once the receipt includes `request_hash` and `response_hash` (pending receipt format update). Also supports manual `--request-body` / `--response-body` flags and auto-probes other known signing formats.
 
 ## What It Does NOT Verify (Yet)
 
@@ -84,7 +84,7 @@ print(tdx_result.status)  # "VERIFIED"
 
 ## CLI Reference
 
-```
+```text
 Usage: tee-verify [OPTIONS] [INPUT_PATH]
 
   Independently verify TEE attestation receipts. No trust required.
@@ -93,7 +93,9 @@ Options:
   --tdx-quote PATH             Path to TDX quote hex file
   --nvidia-cert PATH           Path to NVIDIA cert chain (base64)
   --nvidia-evidence PATH       Path to NVIDIA evidence (base64)
-  --ollm-json PATH             Path to OLLM explorer JSON file
+  --ollm-json PATH             Path to OLLM attestation receipt JSON file
+  --request-body PATH          Path to request body file (model identity verification)
+  --response-body PATH         Path to response body file (model identity verification)
   --output [text|json]         Output format (default: text)
   --offline                    Skip online checks (Intel PCS, NVIDIA OCSP)
   --verbose                    Show detailed output
@@ -118,12 +120,12 @@ Attestation is the cryptographic proof that a TEE is genuine and running expecte
 
 ## Roadmap
 
-- **Phase 1** ✅ Complete: Hardware authenticity, certificate validation, session binding
-- **Phase 2** ✅ Complete: NVIDIA driver RIM validation — 22 firmware measurements verified per GPU
-- **Phase 2b** ✅ Complete: NVIDIA VBIOS RIM validation — 11 GPU BIOS firmware measurements verified per GPU
-- **Phase 3** ✅ In Progress: Model identity verification via signature recovery (address recoverable, awaiting message format specification)
-- **Phase 4**: TypeScript/browser port for client-side verification
-- **Phase 5**: Ethereum on-chain receipt anchoring
+- **Phase 1** ✅ Complete — Hardware authenticity: Intel TDX quote, NVIDIA cert chain, OCSP, session binding
+- **Phase 2** ✅ Complete — NVIDIA driver firmware: 22 measurements per GPU verified against NVIDIA RIM service
+- **Phase 2b** ✅ Complete — NVIDIA VBIOS firmware: 11 BIOS measurements per GPU verified against NVIDIA RIM service
+- **Phase 3** 🔄 In Progress — Model identity: signing logic complete, activates once receipt includes `request_hash`/`response_hash`
+- **Phase 4** Planned — TypeScript/browser port for client-side verification without Python
+- **Phase 5** Planned — Ethereum on-chain receipt anchoring for immutable audit trails
 
 ## Built by ORGN
 

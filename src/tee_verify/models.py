@@ -145,3 +145,5 @@ class OLLMReceipt:
     ecdsa_signature: str = ""
     message_signer: str = ""
     model_signing_address: str = ""
+    request_hash: str = ""   # sha256 hex of the request body (from receipt, Phase 3)
+    response_hash: str = ""  # sha256 hex of the response body (from receipt, Phase 3)

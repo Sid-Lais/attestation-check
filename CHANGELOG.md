@@ -24,11 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Same index mapping and validation logic as driver RIM
   - Verified against real production data: 8× NVIDIA H100, 11/11 measurements matched
 - **SPDM OpaqueData Parsing**: Extracts driver version, VBIOS version, chip SKU, project, and project SKU from SPDM evidence
-- **Phase 3 Model Identity Verification**: Self-discovering ECDSA signature verification
-  - Probes 21 Ethereum signing formats (EIP-191 raw, text, keccak256, sha256, raw hash) across TDX quote, model signing address, nonce, and their combinations
+- **Phase 3 Model Identity Verification**: ECDSA signature verification — complete implementation
+  - Signing format confirmed: `EIP-191(sha256(request_body):sha256(response_body))`
+  - Fast path: when receipt includes `request_hash` and `response_hash`, reconstructs signed message text directly and verifies in one step — no raw bodies needed
+  - Fallback: probes all known Ethereum signing formats (EIP-191 raw, text, keccak256, sha256, raw hash) across TDX quote fields and request/response body variants
   - Returns VERIFIED with detected format name when a match is found
-  - Returns SKIPPED with formats-tried count when no format matches (unknown format, not a broken signature)
-  - No external dependencies — fully self-contained format discovery
+  - Returns SKIPPED with formats-tried count when no format matches (pre-image data unavailable, not a broken signature)
+  - CLI flags `--request-body` and `--response-body` for manual body-based probing
+  - Receipt parser updated: reads `request_hash` and `response_hash` from `message_signature` block when present
 - **OCSP Status in CLI Output**: Certificate revocation status now displayed in text format
   - Shows "OCSP Status: Good (X/Y)" when all GPUs pass OCSP in online mode
   - Hidden in offline mode for consistency

@@ -27,6 +27,7 @@ def verify_model_identity(
     nonce: str = "",
     request_body: str = "",
     response_body: str = "",
+    message_text: str = "",
 ) -> ModelIdentityVerificationResult:
     """Verify model identity through signature validation.
 
@@ -41,6 +42,9 @@ def verify_model_identity(
         nonce: Session nonce from TDX report_data[32:64].
         request_body: Raw request body text (enables request/response formats).
         response_body: Raw response body text (enables request/response formats).
+        message_text: Pre-computed signed message text from the receipt (e.g.
+            "sha256hex:sha256hex"). When provided, tried first before all other
+            formats — enables Phase 3 verification from receipt hashes alone.
 
     Returns:
         ModelIdentityVerificationResult with status, detected format, and
@@ -56,6 +60,7 @@ def verify_model_identity(
         return _verify_model_identity(
             tdx_quote_hex, ecdsa_signature, message_signer,
             model_signing_address, nonce, request_body, response_body,
+            message_text,
         )
     except Exception as e:
         logger.exception("Model identity verification failed: %s", e)
@@ -74,6 +79,7 @@ def _verify_model_identity(
     nonce: str,
     request_body: str,
     response_body: str,
+    message_text: str = "",
 ) -> ModelIdentityVerificationResult:
     """Internal model identity verification — probes all signing formats."""
     declared = message_signer.lower()
@@ -84,10 +90,10 @@ def _verify_model_identity(
     if not sig.startswith("0x"):
         sig = "0x" + sig
 
-    total_formats = _count_formats(model_signing_address, nonce, request_body, response_body)
+    total_formats = _count_formats(model_signing_address, nonce, request_body, response_body, message_text)
     recovery = _probe_all_formats(
         tdx_quote_hex, sig, model_signing_address, nonce,
-        declared, request_body, response_body,
+        declared, request_body, response_body, message_text,
     )
 
     if recovery is None:
@@ -120,13 +126,14 @@ def _probe_all_formats(
     declared_address: str,
     request_body: str,
     response_body: str,
+    message_text: str = "",
 ) -> Optional[tuple]:
     """Try every known Ethereum signing format against the declared signer.
 
     Returns (format_label, attempts_count) if a format matches the declared
     address, or None if no format matches.
     """
-    candidates = _build_candidates(quote_hex, model_signing_address, nonce, request_body, response_body)
+    candidates = _build_candidates(quote_hex, model_signing_address, nonce, request_body, response_body, message_text)
     attempts = 0
 
     for label, strategy, data in candidates:
@@ -145,6 +152,7 @@ def _build_candidates(
     nonce: str,
     request_body: str = "",
     response_body: str = "",
+    message_text: str = "",
 ) -> list:
     """Build the full list of (label, strategy, data) candidates to probe.
 
@@ -158,6 +166,12 @@ def _build_candidates(
     q_bytes = bytes.fromhex(q_hex)
 
     candidates = []
+
+    # ── Group 0: Pre-computed message text from receipt (Phase 3 fast path) ──
+    if message_text:
+        candidates += [
+            ("receipt message_text — EIP-191 text", "eip191_text", message_text),
+        ]
 
     # ── Group 1: Full TDX quote ───────────────────────────────────────────────
     candidates += [
@@ -281,9 +295,10 @@ def _try_recover(strategy: str, data, signature: str) -> Optional[str]:
 def _count_formats(
     model_signing_address: str, nonce: str,
     request_body: str = "", response_body: str = "",
+    message_text: str = "",
 ) -> int:
     """Return total number of formats that would be tried."""
-    return len(_build_candidates("00" * 32, model_signing_address, nonce, request_body, response_body))
+    return len(_build_candidates("00" * 32, model_signing_address, nonce, request_body, response_body, message_text))
 
 
 # ── Hashing helpers ───────────────────────────────────────────────────────────

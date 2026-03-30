@@ -105,6 +105,11 @@ def verify_from_receipt(
     # Phase 3: Verify model identity
     if receipt.tdx_quote_hex and receipt.ecdsa_signature and receipt.message_signer:
         logger.info("Verifying model identity signature...")
+        # If the receipt includes pre-computed hashes (Phase 3 fast path),
+        # reconstruct the signed message text directly without needing raw bodies.
+        message_text = ""
+        if receipt.request_hash and receipt.response_hash:
+            message_text = f"{receipt.request_hash}:{receipt.response_hash}"
         model_identity = verify_model_identity(
             tdx_quote_hex=receipt.tdx_quote_hex,
             ecdsa_signature=receipt.ecdsa_signature,
@@ -113,6 +118,7 @@ def verify_from_receipt(
             nonce=receipt.nvidia_nonce,
             request_body=request_body,
             response_body=response_body,
+            message_text=message_text,
         )
         result.model_identity = model_identity
         logger.info("Model identity verification: %s", model_identity.status)

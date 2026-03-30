@@ -96,6 +96,8 @@ def from_dict(data: Dict[str, Any]) -> OLLMReceipt:
         receipt.model_signing_address = sig_data.get(
             "model_signing_address", sig_data.get("signing_address", "")
         )
+        receipt.request_hash = sig_data.get("request_hash", "")
+        receipt.response_hash = sig_data.get("response_hash", "")
 
     return receipt
 
