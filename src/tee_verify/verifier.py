@@ -107,9 +107,13 @@ def verify_from_receipt(
         logger.info("Verifying model identity signature...")
         # If the receipt includes pre-computed hashes (Phase 3 fast path),
         # reconstruct the signed message text directly without needing raw bodies.
+        # Format: "model:request_hash:response_hash" (3-part) or "request_hash:response_hash" (2-part).
         message_text = ""
         if receipt.request_hash and receipt.response_hash:
-            message_text = f"{receipt.request_hash}:{receipt.response_hash}"
+            if receipt.signed_model:
+                message_text = f"{receipt.signed_model}:{receipt.request_hash}:{receipt.response_hash}"
+            else:
+                message_text = f"{receipt.request_hash}:{receipt.response_hash}"
         model_identity = verify_model_identity(
             tdx_quote_hex=receipt.tdx_quote_hex,
             ecdsa_signature=receipt.ecdsa_signature,

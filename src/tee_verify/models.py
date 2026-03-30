@@ -147,3 +147,4 @@ class OLLMReceipt:
     model_signing_address: str = ""
     request_hash: str = ""   # sha256 hex of the request body (from receipt, Phase 3)
     response_hash: str = ""  # sha256 hex of the response body (from receipt, Phase 3)
+    signed_model: str = ""   # model name included in the signed message (3-part format)
