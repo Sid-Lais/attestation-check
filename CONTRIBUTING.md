@@ -1,6 +1,6 @@
 # Contributing to tee-verify
 
-Thank you for your interest in contributing to tee-verify! This project is maintained by [ORGN](https://orgn.com) and we welcome contributions from the community.
+Thank you for your interest in contributing to tee-verify! This project is maintained by ORGN and we welcome contributions from the community.
 
 ## Getting Started
 
@@ -34,7 +34,7 @@ Thank you for your interest in contributing to tee-verify! This project is maint
 
 ## Security
 
-If you discover a security vulnerability, please report it responsibly by emailing security@orgn.com instead of opening a public issue.
+If you discover a security vulnerability, please report it responsibly via a [GitHub security advisory](https://github.com/Sid-Lais/attestation-check/security/advisories) instead of opening a public issue.
 
 ## License
 

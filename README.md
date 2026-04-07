@@ -21,10 +21,13 @@ pip install tee-verify
 # Verify an OLLM attestation receipt
 tee-verify --ollm-json receipt.json
 
-# Verify with JSON output
+# Verbose output with per-GPU details
+tee-verify --ollm-json receipt.json --verbose
+
+# JSON output for programmatic use
 tee-verify --ollm-json receipt.json --output json
 
-# Verify in offline mode (skip Intel PCS + NVIDIA OCSP)
+# Offline mode (skip Intel PCS + NVIDIA OCSP network calls)
 tee-verify --ollm-json receipt.json --offline
 
 # Verify individual components
@@ -35,13 +38,9 @@ tee-verify --tdx-quote quote.hex --nvidia-cert cert.b64 --nvidia-evidence ev.b64
 ## What It Verifies
 
 - **Intel TDX** — Parses the TDX DCAP Quote v4, verifies the ECDSA-P256 signature, validates the PCK certificate chain against Intel's Root CA, and checks TCB status via Intel's Provisioning Certification Service.
-- **NVIDIA GPU Attestation** — Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, verifies the SPDM evidence signature using the device certificate, and validates all firmware measurements against NVIDIA's signed Reference Integrity Manifests — both driver firmware (22 measurements) and GPU BIOS firmware (11 measurements).
+- **NVIDIA GPU Attestation** — Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, verifies the SPDM evidence signature using the device certificate, and validates all firmware measurements against NVIDIA's signed Reference Integrity Manifests — both driver firmware (22 measurements) and GPU BIOS firmware (10-11 measurements).
 - **Session Binding** — Cross-checks the attestation nonce between the TDX quote and every GPU evidence blob, proving they belong to the same TEE session.
-- **Model Identity** — Verifies the ECDSA signature over `EIP-191(sha256(request):sha256(response))`, confirming that the declared model signing authority processed this exact request and response. Activates automatically once the receipt includes `request_hash` and `response_hash` (pending receipt format update). Also supports manual `--request-body` / `--response-body` flags and auto-probes other known signing formats.
-
-## What It Does NOT Verify (Yet)
-
-- **AMD SEV-SNP** — Support for AMD's confidential computing platform is on the roadmap.
+- **Model Identity** — Verifies the ECDSA signature over `EIP-191(model:sha256(request):sha256(response))`, confirming that the declared model signing authority processed this exact request and response. Reads `request_hash` and `response_hash` directly from the receipt. Also supports manual `--request-body` / `--response-body` flags and auto-probes other known signing formats.
 
 ## How It Works
 
@@ -50,6 +49,8 @@ A TEE attestation receipt contains two independent proofs:
 1. The **Intel TDX quote** proves the CPU is running inside a genuine Trust Domain with a specific software measurement (MRTD). The quote is signed by Intel's Quoting Enclave using a Platform Certification Key traceable to Intel's root of trust.
 
 2. The **NVIDIA GPU evidence** proves each GPU in the cluster is a genuine NVIDIA device running verified firmware. Each GPU produces an SPDM measurement report signed by its device-specific attestation key, with a certificate chain rooted in NVIDIA's PKI. The firmware measurements are cross-checked against NVIDIA's signed Reference Integrity Manifests for both the GPU driver and GPU BIOS, confirming no firmware component has been modified.
+
+3. The **model identity signature** proves the declared signing authority attested to this specific inference. The signature is verified using ECDSA recovery over the request and response hashes embedded in the receipt.
 
 The receipts are cryptographically bound together by a shared nonce: the GPU attestation nonce must appear in the TDX quote's REPORT_DATA field, proving both attestations were generated in the same session.
 
@@ -70,7 +71,7 @@ print(result.tdx.mrtd)              # TD measurement hash
 print(result.tdx.nonce)             # Session nonce
 print(result.nonce_binding_valid)   # True
 print(len(result.nvidia_gpus))      # 8
-print(result.model_identity.status) # "VERIFIED" or "SKIPPED"
+print(result.model_identity.status) # "VERIFIED"
 
 # Get structured output
 print(result.to_json())
@@ -118,20 +119,13 @@ A Trusted Execution Environment (TEE) is a hardware-enforced isolated execution 
 
 Attestation is the cryptographic proof that a TEE is genuine and running expected software. The hardware generates a signed report (a "quote" in Intel terminology) containing measurements of the loaded software. Anyone can verify this signature against the hardware vendor's root of trust to confirm: this code is really running on that hardware, and no one — not even the cloud provider — can tamper with it.
 
-## Roadmap
+## What It Does NOT Verify (Yet)
 
-- **Phase 1** ✅ Complete — Hardware authenticity: Intel TDX quote, NVIDIA cert chain, OCSP, session binding
-- **Phase 2** ✅ Complete — NVIDIA driver firmware: 22 measurements per GPU verified against NVIDIA RIM service
-- **Phase 2b** ✅ Complete — NVIDIA VBIOS firmware: 11 BIOS measurements per GPU verified against NVIDIA RIM service
-- **Phase 3** 🔄 In Progress — Model identity: signing logic complete, activates once receipt includes `request_hash`/`response_hash`
-- **Phase 4** Planned — TypeScript/browser port for client-side verification without Python
-- **Phase 5** Planned — Ethereum on-chain receipt anchoring for immutable audit trails
+- **AMD SEV-SNP** — Support for AMD's confidential computing platform.
 
 ## Built by ORGN
 
-tee-verify is built and maintained by [ORGN](https://orgn.com), a secure AI development environment for regulated industries. ORGN's backend gateway [OLLM](https://ollm.com) runs AI models inside TEEs and produces the attestation receipts this tool verifies.
-
-If you want an IDE where all of this is automatic — [orgn.com](https://orgn.com)
+tee-verify is built and maintained by ORGN. ORGN's backend gateway OLLM runs AI models inside TEEs and produces the attestation receipts this tool verifies.
 
 ## Contributing
 
