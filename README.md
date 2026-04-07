@@ -188,10 +188,6 @@ A Trusted Execution Environment (TEE) is a hardware-enforced isolated execution 
 
 Attestation is the cryptographic proof that a TEE is genuine and running expected software. The hardware generates a signed report (a "quote" in Intel terminology) containing measurements of the loaded software. Anyone can verify this signature against the hardware vendor's root of trust to confirm: this code is really running on that hardware, and no one — not even the cloud provider — can tamper with it.
 
-## Built by ORGN
-
-tee-verify is built and maintained by ORGN. ORGN's backend gateway OLLM runs AI models inside TEEs and produces the attestation receipts this tool verifies.
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
