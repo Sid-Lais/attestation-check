@@ -35,6 +35,14 @@ tee-verify --tdx-quote quote.hex
 tee-verify --tdx-quote quote.hex --nvidia-cert cert.b64 --nvidia-evidence ev.b64
 ```
 
+## Try It With a Live Attestation
+
+Want to verify a real confidential AI inference? Sign up at [ollm.com](https://ollm.com), send any chat request, and grab the attestation receipt from [console.ollm.com](https://console.ollm.com). Save the receipt JSON and run:
+
+```bash
+tee-verify --ollm-json receipt.json --verbose
+```
+
 ## What It Verifies
 
 - **Intel TDX** — Parses the TDX DCAP Quote v4, verifies the ECDSA-P256 signature, validates the PCK certificate chain against Intel's Root CA, and checks TCB status via Intel's Provisioning Certification Service.

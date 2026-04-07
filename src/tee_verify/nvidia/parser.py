@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import struct
-from typing import List, Tuple
+from typing import List
 
 from cryptography import x509
 

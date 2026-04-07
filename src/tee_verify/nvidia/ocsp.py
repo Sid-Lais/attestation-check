@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Tuple
+from typing import Optional, Tuple
 
 import requests
 from cryptography import x509

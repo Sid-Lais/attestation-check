@@ -8,7 +8,6 @@ from typing import List, Optional
 from tee_verify.binding import verify_nonce_binding
 from tee_verify.model_identity import verify_model_identity
 from tee_verify.models import (CompositeVerificationResult,
-                               ModelIdentityVerificationResult,
                                NvidiaGPUVerificationResult, OLLMReceipt,
                                TDXVerificationResult)
 from tee_verify.nvidia.verifier import verify_gpu

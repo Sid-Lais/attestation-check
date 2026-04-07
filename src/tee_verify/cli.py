@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -17,13 +16,11 @@ _BANNER = f"""\
   tee-verify v{__version__}  |  by ORGN
 {'=' * 50}\033[0m"""
 
-import sys as _sys
-
 
 # Use Unicode symbols on terminals that support them, ASCII fallback otherwise
 def _supports_unicode():
     try:
-        "\u2713".encode(_sys.stdout.encoding or "ascii")
+        "\u2713".encode(sys.stdout.encoding or "ascii")
         return True
     except (UnicodeEncodeError, LookupError):
         return False
@@ -141,7 +138,7 @@ def _print_text_result(result, verbose, offline):
                 click.echo(f"    User Data                   {tdx.user_data}")
         click.echo(f"    Report Data                 {tdx.report_data[:64]}...")
         click.echo(f"    Nonce (report_data[32:64])  {tdx.nonce[:32]}...")
-        click.echo(f"    Platform                    Genuine Intel TDX")
+        click.echo("    Platform                    Genuine Intel TDX")
         if tdx.error:
             click.echo(f"    Error                       {tdx.error}")
         click.echo()
@@ -243,7 +240,7 @@ def _print_text_result(result, verbose, offline):
                 click.echo(f"    Formats tried               {model.formats_tried}")
                 click.echo(f"    {_WARN}  None of {model.formats_tried} formats matched the declared signer")
                 if model.error and "--request-body" in model.error:
-                    click.echo(f"         Run with --request-body and --response-body to enable request+response formats")
+                    click.echo("         Run with --request-body and --response-body to enable request+response formats")
             else:
                 click.echo(f"    {_WARN}  No signature data in attestation")
         elif model.status == "FAILED":

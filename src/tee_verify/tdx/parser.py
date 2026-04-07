@@ -111,7 +111,6 @@ def parse_quote(data: str | bytes) -> TDXQuote:
 
     # Parse signature data section
     sig_data_offset = _TD_BODY_END
-    sig_data_len = struct.unpack_from("<I", raw, sig_data_offset)[0]
     sig_start = sig_data_offset + 4
 
     # ECDSA-256 signature (64 bytes) + attestation public key (64 bytes)

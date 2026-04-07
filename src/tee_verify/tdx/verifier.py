@@ -9,7 +9,7 @@ from typing import Optional
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ec, utils
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 
 from tee_verify.models import TDXVerificationResult
 from tee_verify.tdx.parser import parse_quote
