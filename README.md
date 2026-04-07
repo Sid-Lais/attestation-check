@@ -56,6 +56,67 @@ The receipts are cryptographically bound together by a shared nonce: the GPU att
 
 `tee-verify` checks all of this independently — no vendor SDKs, no trust assumptions.
 
+## Verification Flow
+
+The following diagram shows the complete verification pipeline — every cryptographic check `tee-verify` performs on an attestation receipt, the external trust anchors it validates against, and how the results combine into a final composite verdict.
+
+```mermaid
+flowchart TD
+    Receipt["Attestation Receipt (JSON)"] --> Parse["Parse Receipt"]
+
+    Parse --> TDX["Intel TDX Verification"]
+    Parse --> NVIDIA["NVIDIA GPU Verification (per GPU)"]
+    Parse --> Binding["Session Binding"]
+    Parse --> Identity["Model Identity"]
+
+    %% ── Intel TDX ──
+    TDX --> TDX_Parse["Parse DCAP Quote v4"]
+    TDX_Parse --> TDX_Sig["Verify ECDSA-P256 Signature"]
+    TDX_Sig --> TDX_Cert["Validate PCK Certificate Chain\nvs Intel Root CA"]
+    TDX_Cert --> TDX_TCB["Check TCB Status"]
+    TDX_TCB -.->|online| Intel_PCS[("Intel PCS API")]
+    TDX_TCB --> TDX_Result{{"TDX: VERIFIED"}}
+
+    %% ── NVIDIA GPUs ──
+    NVIDIA --> GPU_Cert["Validate Certificate Chain\nDevice → NVIDIA Root CA"]
+    GPU_Cert --> GPU_OCSP["Check OCSP Revocation"]
+    GPU_OCSP -.->|online| NVIDIA_OCSP[("NVIDIA OCSP")]
+    GPU_OCSP --> GPU_Sig["Verify SPDM Evidence Signature"]
+    GPU_Sig --> GPU_Driver["Driver RIM: 22 Measurements"]
+    GPU_Driver -.->|fetch| RIM_Service[("NVIDIA RIM Service")]
+    GPU_Driver --> GPU_VBIOS["VBIOS RIM: 10-11 Measurements"]
+    GPU_VBIOS -.->|fetch| RIM_Service
+    GPU_VBIOS --> GPU_Result{{"GPU: VERIFIED"}}
+
+    %% ── Session Binding ──
+    Binding --> Nonce_Check["Compare TDX REPORT_DATA Nonce\nvs GPU Evidence Nonce"]
+    Nonce_Check --> Binding_Result{{"Binding: VERIFIED"}}
+
+    %% ── Model Identity ──
+    Identity --> Sig_Parse["Extract request_hash,\nresponse_hash, signature"]
+    Sig_Parse --> Reconstruct["Reconstruct signed message\nmodel:req_hash:resp_hash"]
+    Reconstruct --> ECDSA["EIP-191 ECDSA Recovery"]
+    ECDSA --> Addr_Match["Recovered address\n== declared signer?"]
+    Addr_Match --> Identity_Result{{"Identity: VERIFIED"}}
+
+    %% ── Final Composite ──
+    TDX_Result --> Composite{{"COMPOSITE VERIFIED"}}
+    GPU_Result --> Composite
+    Binding_Result --> Composite
+    Identity_Result --> Composite
+
+    %% ── Styling ──
+    classDef external fill:#f0f4ff,stroke:#4a6fa5,stroke-dasharray: 5 5
+    classDef result fill:#d4edda,stroke:#28a745,color:#155724,font-weight:bold
+    classDef input fill:#fff3cd,stroke:#856404
+
+    class Intel_PCS,NVIDIA_OCSP,RIM_Service external
+    class TDX_Result,GPU_Result,Binding_Result,Identity_Result,Composite result
+    class Receipt input
+```
+
+> **Dashed lines** represent optional online checks — these are skipped in `--offline` mode. All other checks are performed locally using only the receipt data and the hardware vendors' root certificates.
+
 ## Using as a Library
 
 ```python
@@ -118,10 +179,6 @@ pytest tests/ -v
 A Trusted Execution Environment (TEE) is a hardware-enforced isolated execution context. Intel TDX creates Trust Domains — encrypted virtual machines where not even the hypervisor can read the memory. NVIDIA's Hopper GPUs extend this trust boundary to the GPU, enabling confidential AI inference where the model weights and user prompts are never exposed to the host.
 
 Attestation is the cryptographic proof that a TEE is genuine and running expected software. The hardware generates a signed report (a "quote" in Intel terminology) containing measurements of the loaded software. Anyone can verify this signature against the hardware vendor's root of trust to confirm: this code is really running on that hardware, and no one — not even the cloud provider — can tamper with it.
-
-## What It Does NOT Verify (Yet)
-
-- **AMD SEV-SNP** — Support for AMD's confidential computing platform.
 
 ## Built by ORGN
 
