@@ -106,9 +106,9 @@ flowchart TD
     Identity_Result --> Composite
 
     %% ── Styling ──
-    classDef external fill:#f0f4ff,stroke:#4a6fa5,stroke-dasharray: 5 5
+    classDef external fill:#f0f4ff,stroke:#4a6fa5,color:#1a3a5c,stroke-dasharray: 5 5
     classDef result fill:#d4edda,stroke:#28a745,color:#155724,font-weight:bold
-    classDef input fill:#fff3cd,stroke:#856404
+    classDef input fill:#fff3cd,stroke:#856404,color:#533f03
 
     class Intel_PCS,NVIDIA_OCSP,RIM_Service external
     class TDX_Result,GPU_Result,Binding_Result,Identity_Result,Composite result
