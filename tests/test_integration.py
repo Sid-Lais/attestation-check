@@ -9,7 +9,7 @@ from tee_verify.verifier import verify_from_receipt, verify_composite
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 OLLM_JSON_PATH = FIXTURES_DIR / "real_ollm_request.json"
 
-EXPECTED_NONCE = "3b2b40a967bd085ef617bf00e75b90beb058a91a563d1ff874d2391690357587"
+EXPECTED_NONCE = "f60da25691ac6ed2b2137c1051e6e922519ba229d4febde4e7794f63e6bd8b9d"
 
 
 def test_full_composite_verification_offline():
@@ -32,6 +32,10 @@ def test_full_composite_verification_offline():
 
     # Session binding
     assert result.nonce_binding_valid is True
+
+    # Model identity
+    assert result.model_identity is not None
+    assert result.model_identity.status == "VERIFIED"
 
     # Verified timestamp
     assert result.verified_at != ""
@@ -64,11 +68,8 @@ def test_dict_output():
 
 def test_tdx_only_verification():
     """TDX-only verification (no NVIDIA data) should work."""
-    with open(OLLM_JSON_PATH) as f:
-        data = json.load(f)
-
-    tdx_hex = data["attestation"]["tdx"]["quote"]
-    result = verify_composite(tdx_quote_hex=tdx_hex, offline=True)
+    receipt = from_file(OLLM_JSON_PATH)
+    result = verify_composite(tdx_quote_hex=receipt.tdx_quote_hex, offline=True)
 
     assert result.tdx is not None
     assert result.nvidia_gpus == []

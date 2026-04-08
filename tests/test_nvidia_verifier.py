@@ -1,18 +1,16 @@
 """Tests for NVIDIA GPU verifier (offline mode)."""
 
-import json
 from pathlib import Path
 
+from tee_verify.formats.ollm import from_file
 from tee_verify.nvidia.verifier import verify_gpu
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-with open(FIXTURES_DIR / "real_ollm_request.json") as f:
-    OLLM_DATA = json.load(f)
-
-GPU0_CERT = OLLM_DATA["attestation"]["nvidia"]["gpus"][0]["certificate"]
-GPU0_EVIDENCE = OLLM_DATA["attestation"]["nvidia"]["gpus"][0]["evidence"]
-EXPECTED_NONCE = "3b2b40a967bd085ef617bf00e75b90beb058a91a563d1ff874d2391690357587"
+_receipt = from_file(FIXTURES_DIR / "real_ollm_request.json")
+GPU0_CERT = _receipt.gpu_certificates[0]
+GPU0_EVIDENCE = _receipt.gpu_evidences[0]
+EXPECTED_NONCE = "f60da25691ac6ed2b2137c1051e6e922519ba229d4febde4e7794f63e6bd8b9d"
 
 
 def test_verify_gpu_offline():

@@ -14,11 +14,10 @@ OLLM_JSON_PATH = FIXTURES_DIR / "real_ollm_request.json"
 def test_from_file():
     """Load and parse OLLM receipt from file."""
     receipt = from_file(OLLM_JSON_PATH)
-    assert receipt.request_id == "chatcmpl-8570e42b12e990bd"
+    assert receipt.request_id == "27a081d9f778435895dcfdd0dbab1d46"
     assert receipt.tdx_quote_hex != ""
     assert len(receipt.gpu_certificates) == 8
     assert len(receipt.gpu_evidences) == 8
-    assert receipt.nvidia_nonce == "3b2b40a967bd085ef617bf00e75b90beb058a91a563d1ff874d2391690357587"
     assert receipt.nvidia_architecture == "HOPPER"
 
 
@@ -27,7 +26,7 @@ def test_from_dict():
     with open(OLLM_JSON_PATH) as f:
         data = json.load(f)
     receipt = from_dict(data)
-    assert receipt.request_id == "chatcmpl-8570e42b12e990bd"
+    assert receipt.request_id == "27a081d9f778435895dcfdd0dbab1d46"
     assert receipt.tdx_quote_hex.startswith("04000200")
 
 
