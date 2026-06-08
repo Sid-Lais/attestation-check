@@ -9,7 +9,7 @@
 
 ## The Problem
 
-Every AI platform asks you to trust that their infrastructure is secure. But trust is not verification. If an AI provider runs models inside a Trusted Execution Environment and gives you a cryptographic attestation receipt, you should be able to verify it yourself — without relying on the provider's own tools.
+Every AI platform asks you to trust that their infrastructure is secure. But trust is not verification. If an AI provider runs models inside a Trusted Execution Environment and gives you a cryptographic attestation receipt, you should be able to verify it yourself, without relying on the provider's own tools.
 
 ## Quick Start
 
@@ -45,10 +45,10 @@ tee-verify --ollm-json receipt.json --verbose
 
 ## What It Verifies
 
-- **Intel TDX** — Parses the TDX DCAP Quote v4, verifies the ECDSA-P256 signature, validates the PCK certificate chain against Intel's Root CA, and checks TCB status via Intel's Provisioning Certification Service.
-- **NVIDIA GPU Attestation** — Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, verifies the SPDM evidence signature using the device certificate, and validates all firmware measurements against NVIDIA's signed Reference Integrity Manifests — both driver firmware (22 measurements) and GPU BIOS firmware (10-11 measurements).
-- **Session Binding** — Cross-checks the attestation nonce between the TDX quote and every GPU evidence blob, proving they belong to the same TEE session.
-- **Model Identity** — Verifies the ECDSA signature over `EIP-191(model:sha256(request):sha256(response))`, confirming that the declared model signing authority processed this exact request and response. Reads `request_hash` and `response_hash` directly from the receipt. Also supports manual `--request-body` / `--response-body` flags and auto-probes other known signing formats.
+- **Intel TDX:** Parses the TDX DCAP Quote v4, verifies the ECDSA-P256 signature, validates the PCK certificate chain against Intel's Root CA, and checks TCB status via Intel's Provisioning Certification Service.
+- **NVIDIA GPU Attestation:** Validates the GPU certificate chain (device to NVIDIA Root CA), checks revocation via OCSP, verifies the SPDM evidence signature using the device certificate, and validates all firmware measurements against NVIDIA's signed Reference Integrity Manifests, both driver firmware (22 measurements) and GPU BIOS firmware (10-11 measurements).
+- **Session Binding:** Cross-checks the attestation nonce between the TDX quote and every GPU evidence blob, proving they belong to the same TEE session.
+- **Model Identity:** Verifies the ECDSA signature over `EIP-191(model:sha256(request):sha256(response))`, confirming that the declared model signing authority processed this exact request and response. Reads `request_hash` and `response_hash` directly from the receipt. Also supports manual `--request-body` / `--response-body` flags and auto-probes other known signing formats.
 
 ## How It Works
 
@@ -62,11 +62,11 @@ A TEE attestation receipt contains two independent proofs:
 
 The receipts are cryptographically bound together by a shared nonce: the GPU attestation nonce must appear in the TDX quote's REPORT_DATA field, proving both attestations were generated in the same session.
 
-`tee-verify` checks all of this independently — no vendor SDKs, no trust assumptions.
+`tee-verify` checks all of this independently, no vendor SDKs, no trust assumptions.
 
 ## Verification Flow
 
-The following diagram shows the complete verification pipeline — every cryptographic check `tee-verify` performs on an attestation receipt, the external trust anchors it validates against, and how the results combine into a final composite verdict.
+The following diagram shows the complete verification pipeline, every cryptographic check `tee-verify` performs on an attestation receipt, the external trust anchors it validates against, and how the results combine into a final composite verdict.
 
 ```mermaid
 flowchart TD
@@ -123,7 +123,7 @@ flowchart TD
     class Receipt input
 ```
 
-> **Dashed lines** represent optional online checks — these are skipped in `--offline` mode. All other checks are performed locally using only the receipt data and the hardware vendors' root certificates.
+> **Dashed lines** represent optional online checks, these are skipped in `--offline` mode. All other checks are performed locally using only the receipt data and the hardware vendors' root certificates.
 
 ## Using as a Library
 
@@ -184,9 +184,9 @@ pytest tests/ -v
 
 ## Background: What Is TEE Attestation?
 
-A Trusted Execution Environment (TEE) is a hardware-enforced isolated execution context. Intel TDX creates Trust Domains — encrypted virtual machines where not even the hypervisor can read the memory. NVIDIA's Hopper GPUs extend this trust boundary to the GPU, enabling confidential AI inference where the model weights and user prompts are never exposed to the host.
+A Trusted Execution Environment (TEE) is a hardware-enforced isolated execution context. Intel TDX creates Trust Domains, encrypted virtual machines where not even the hypervisor can read the memory. NVIDIA's Hopper GPUs extend this trust boundary to the GPU, enabling confidential AI inference where the model weights and user prompts are never exposed to the host.
 
-Attestation is the cryptographic proof that a TEE is genuine and running expected software. The hardware generates a signed report (a "quote" in Intel terminology) containing measurements of the loaded software. Anyone can verify this signature against the hardware vendor's root of trust to confirm: this code is really running on that hardware, and no one — not even the cloud provider — can tamper with it.
+Attestation is the cryptographic proof that a TEE is genuine and running expected software. The hardware generates a signed report (a "quote" in Intel terminology) containing measurements of the loaded software. Anyone can verify this signature against the hardware vendor's root of trust to confirm: this code is really running on that hardware, and no one, not even the cloud provider, can tamper with it.
 
 ## Contributing
 
@@ -194,4 +194,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE) for details.
+Apache License 2.0, see [LICENSE](LICENSE) for details.
